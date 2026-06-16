@@ -1,0 +1,69 @@
+# =============================================================================
+# TPC-DS Terraform Configuration Example
+# =============================================================================
+# Copy this file to terraform.tfvars and fill in your values.
+# DO NOT commit terraform.tfvars to version control.
+
+# -----------------------------------------------------------------------------
+# General
+# -----------------------------------------------------------------------------
+
+environment    = "dev"
+project_prefix = "tpcds"
+
+# -----------------------------------------------------------------------------
+# Provider profiles
+#
+# Terraform authenticates against each service via customer-managed CLI
+# profiles. Configure them once locally before running `terraform apply`:
+#
+#   aws sso login --profile <aws_profile>                 # or `aws configure`
+#   databricks auth login --host <url> --profile <name>   # writes ~/.databrickscfg
+#   snow connection add <name> ...                        # writes ~/.snowflake/config.toml
+# -----------------------------------------------------------------------------
+
+aws_profile        = "tpcds-dev"
+databricks_profile = "tpcds-dev"
+snowflake_profile  = "tpcds-dev"
+
+# -----------------------------------------------------------------------------
+# AWS
+# -----------------------------------------------------------------------------
+
+aws_region = "us-east-1"
+
+# S3 bucket name must be globally unique.
+s3_bucket_name       = "tpcds-benchmark-yourcompany-dev"
+s3_enable_versioning = true
+
+# Subpath under the bucket for Snowflake managed-Iceberg data (trailing slash required).
+iceberg_s3_prefix = "iceberg/"
+
+# -----------------------------------------------------------------------------
+# Databricks
+# -----------------------------------------------------------------------------
+
+databricks_workspace_url = "https://dbc-xxxxxxx.cloud.databricks.com"
+databricks_account_id    = "your-databricks-account-id"
+
+# Catalog + schema are CREATED by terraform. Use names that are not already
+# taken in your workspace, or import the existing objects before applying.
+databricks_catalog     = "tpcds_sf_catalog"
+databricks_schema      = "tpcds"
+databricks_volume_name = "tpcds_raw_data"
+
+# -----------------------------------------------------------------------------
+# Snowflake
+# -----------------------------------------------------------------------------
+
+# From account URL: https://<org>-<acct>.snowflakecomputing.com
+snowflake_organization = "YOUR_ORG"
+snowflake_account      = "YOUR_ACCT"
+
+snowflake_database_name = "TPCDS"
+snowflake_schema_name   = "BENCHMARK"
+
+# Customer-managed service account (must already exist, with RSA keypair auth).
+# The RSA private key is uploaded to the UC volume after apply — see next_steps.
+snowflake_user         = "SVC_JMETER"
+snowflake_service_role = "SYSADMIN"

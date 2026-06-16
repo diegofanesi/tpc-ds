@@ -1,0 +1,10 @@
+# Prevent committing Databricks notebook widget state / outputs / secrets.
+# Install once with:  pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: sanitize-notebooks
+        name: sanitize Databricks notebooks
+        entry: python tools/sanitize_notebooks.py
+        language: system
+        files: \.ipynb$

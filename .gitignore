@@ -1,0 +1,24 @@
+test_conf/**
+results/**
+logs/**
+tpcds_databricks_concurrency_streams/**
+tpcds_snowflake_concurrency_streams/**
+context.md
+config.json
+config.json.*
+sw_auth
+
+# Credentials / key material — never commit
+*.p8
+*.pem
+*.key
+rsa_key*
+*_rsa
+id_rsa*
+.env
+.env.*
+.planning/
+.databricks/
+.claude/
+.DS_Store
+index.html*

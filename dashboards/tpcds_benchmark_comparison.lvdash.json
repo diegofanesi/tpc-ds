@@ -1,0 +1,1873 @@
+{
+  "datasets": [
+    {
+      "name": "ds_phase_summary",
+      "displayName": "Phase summary",
+      "queryLines": [
+        "WITH r AS (   SELECT     platform, test_type, scale, warehouse_size, warehouse_size_type,     optimization_strategy, strategy_slug,     CASE WHEN platform = 'databricks' THEN concat('DBX/', lower(strategy_slug))          ELSE concat('SF/',  lower(strategy_slug)) END AS combined_label,     COUNT(*) AS query_count,     SUM(duration_ms) AS sum_duration_ms,     AVG(CAST(duration_ms AS DOUBLE)) AS avg_duration_ms,     MAX(CAST(duration_ms AS BIGINT)) AS max_duration_ms,     CAST((unix_timestamp(MAX(end_time)) - unix_timestamp(MIN(start_time))) AS DOUBLE) AS wall_clock_seconds   FROM tpcds_sf_catalog.tpcds.results_queries   WHERE (platform = 'databricks' AND strategy_slug IN (:dbx_strategies))      OR (platform = 'snowflake'  AND strategy_slug IN (:sf_strategies))   GROUP BY 1,2,3,4,5,6,7,8 ) SELECT r.platform, r.test_type, r.scale, r.warehouse_size, r.warehouse_size_type,   r.optimization_strategy, r.strategy_slug, r.combined_label,   concat(r.test_type, ' / ', r.combined_label) AS phase_strategy,   CASE r.test_type WHEN 'ingestion' THEN 1 WHEN 'power' THEN 2 WHEN 'concurrency' THEN 3 ELSE 99 END AS phase_order,   COALESCE(p.tier, '(unpriced)') AS tier,   r.query_count, r.sum_duration_ms, r.avg_duration_ms, r.max_duration_ms, r.wall_clock_seconds,   ROUND(r.sum_duration_ms / 3600000.0 * COALESCE(p.units_per_hour, 0) * COALESCE(p.price_per_unit, 0), 4) AS cost_usd_summed,   ROUND(r.wall_clock_seconds / 3600.0 * COALESCE(p.units_per_hour, 0) * COALESCE(p.price_per_unit, 0), 4) AS cost_usd_wallclock,   COALESCE(p.unit_label, 'unit') AS unit_label FROM r LEFT JOIN tpcds_sf_catalog.tpcds.results_prices p   ON p.platform = r.platform  AND p.warehouse_size = r.warehouse_size  AND p.warehouse_size_type = r.warehouse_size_type  AND p.region = 'us-east-1'  AND p.tier = (CASE WHEN r.platform = 'databricks' THEN :dbx_tier ELSE :sf_tier END)"
+      ],
+      "parameters": [
+        {
+          "displayName": "Databricks tier",
+          "keyword": "dbx_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Enterprise"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake tier",
+          "keyword": "sf_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Business Critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Databricks strategies",
+          "keyword": "dbx_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ZORDER"
+                },
+                {
+                  "value": "LIQUID_CLUSTERING"
+                },
+                {
+                  "value": "ICEBERG"
+                },
+                {
+                  "value": "ICEBERG_ZORDERED"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake strategies",
+          "keyword": "sf_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "NATIVE_GEN1"
+                },
+                {
+                  "value": "NATIVE_GEN2"
+                },
+                {
+                  "value": "ICEBERG_GEN1"
+                },
+                {
+                  "value": "ICEBERG_GEN2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ds_query_ingestion",
+      "displayName": "Per-query — ingestion",
+      "queryLines": [
+        "WITH q AS (   SELECT r.platform, r.scale, r.warehouse_size, r.warehouse_size_type, r.q_id,     r.strategy_slug,     CASE WHEN r.platform='databricks' THEN concat('DBX/', lower(r.strategy_slug))          ELSE concat('SF/',  lower(r.strategy_slug)) END AS combined_label,     AVG(CAST(r.duration_ms AS DOUBLE)) AS avg_duration_ms,     SUM(r.duration_ms) AS sum_duration_ms,     COUNT(*) AS exec_count   FROM tpcds_sf_catalog.tpcds.results_queries r   WHERE r.test_type = 'ingestion'     AND ((r.platform = 'databricks' AND r.strategy_slug IN (:dbx_strategies))       OR (r.platform = 'snowflake'  AND r.strategy_slug IN (:sf_strategies)))   GROUP BY 1,2,3,4,5,6,7 ) SELECT q.platform, q.scale, q.warehouse_size, q.warehouse_size_type, q.q_id,   q.strategy_slug, q.combined_label,   COALESCE(p.tier, '(unpriced)') AS tier,   q.avg_duration_ms, q.sum_duration_ms, q.exec_count,   ROUND(q.sum_duration_ms / 3600000.0 * COALESCE(p.units_per_hour, 0) * COALESCE(p.price_per_unit, 0), 4) AS cost_usd FROM q LEFT JOIN tpcds_sf_catalog.tpcds.results_prices p   ON p.platform = q.platform AND p.warehouse_size = q.warehouse_size  AND p.warehouse_size_type = q.warehouse_size_type AND p.region = 'us-east-1'  AND p.tier = (CASE WHEN q.platform = 'databricks' THEN :dbx_tier ELSE :sf_tier END)"
+      ],
+      "parameters": [
+        {
+          "displayName": "Databricks tier",
+          "keyword": "dbx_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Enterprise"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake tier",
+          "keyword": "sf_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Business Critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Databricks strategies",
+          "keyword": "dbx_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ZORDER"
+                },
+                {
+                  "value": "LIQUID_CLUSTERING"
+                },
+                {
+                  "value": "ICEBERG"
+                },
+                {
+                  "value": "ICEBERG_ZORDERED"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake strategies",
+          "keyword": "sf_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "NATIVE_GEN1"
+                },
+                {
+                  "value": "NATIVE_GEN2"
+                },
+                {
+                  "value": "ICEBERG_GEN1"
+                },
+                {
+                  "value": "ICEBERG_GEN2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ds_query_power",
+      "displayName": "Per-query — power",
+      "queryLines": [
+        "WITH q AS (   SELECT r.platform, r.scale, r.warehouse_size, r.warehouse_size_type, r.q_id,     r.strategy_slug,     CASE WHEN r.platform='databricks' THEN concat('DBX/', lower(r.strategy_slug))          ELSE concat('SF/',  lower(r.strategy_slug)) END AS combined_label,     CAST(regexp_extract(r.q_id, '^q([0-9]+)', 1) AS INT) AS q_num,     AVG(CAST(r.duration_ms AS DOUBLE)) AS avg_duration_ms,     SUM(r.duration_ms) AS sum_duration_ms,     COUNT(*) AS exec_count   FROM tpcds_sf_catalog.tpcds.results_queries r   WHERE r.test_type = 'power'     AND ((r.platform = 'databricks' AND r.strategy_slug IN (:dbx_strategies))       OR (r.platform = 'snowflake'  AND r.strategy_slug IN (:sf_strategies)))   GROUP BY 1,2,3,4,5,6,7,8 ) SELECT q.platform, q.scale, q.warehouse_size, q.warehouse_size_type, q.q_id, q.q_num,   q.strategy_slug, q.combined_label,   COALESCE(p.tier, '(unpriced)') AS tier,   q.avg_duration_ms, q.sum_duration_ms, q.exec_count,   ROUND(q.sum_duration_ms / 3600000.0 * COALESCE(p.units_per_hour, 0) * COALESCE(p.price_per_unit, 0), 4) AS cost_usd FROM q LEFT JOIN tpcds_sf_catalog.tpcds.results_prices p   ON p.platform = q.platform AND p.warehouse_size = q.warehouse_size  AND p.warehouse_size_type = q.warehouse_size_type AND p.region = 'us-east-1'  AND p.tier = (CASE WHEN q.platform = 'databricks' THEN :dbx_tier ELSE :sf_tier END) ORDER BY q.q_num, q.q_id"
+      ],
+      "parameters": [
+        {
+          "displayName": "Databricks tier",
+          "keyword": "dbx_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Enterprise"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake tier",
+          "keyword": "sf_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Business Critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Databricks strategies",
+          "keyword": "dbx_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ZORDER"
+                },
+                {
+                  "value": "LIQUID_CLUSTERING"
+                },
+                {
+                  "value": "ICEBERG"
+                },
+                {
+                  "value": "ICEBERG_ZORDERED"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake strategies",
+          "keyword": "sf_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "NATIVE_GEN1"
+                },
+                {
+                  "value": "NATIVE_GEN2"
+                },
+                {
+                  "value": "ICEBERG_GEN1"
+                },
+                {
+                  "value": "ICEBERG_GEN2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ds_query_concurrency",
+      "displayName": "Per-query — concurrency",
+      "queryLines": [
+        "WITH q AS (   SELECT r.platform, r.scale, r.warehouse_size, r.warehouse_size_type, r.q_id,     r.strategy_slug,     CASE WHEN r.platform='databricks' THEN concat('DBX/', lower(r.strategy_slug))          ELSE concat('SF/',  lower(r.strategy_slug)) END AS combined_label,     CAST(regexp_extract(r.q_id, '^q([0-9]+)', 1) AS INT) AS q_num,     AVG(CAST(r.duration_ms AS DOUBLE)) AS avg_duration_ms,     SUM(r.duration_ms) AS sum_duration_ms,     COUNT(*) AS exec_count   FROM tpcds_sf_catalog.tpcds.results_queries r   WHERE r.test_type = 'concurrency'     AND ((r.platform = 'databricks' AND r.strategy_slug IN (:dbx_strategies))       OR (r.platform = 'snowflake'  AND r.strategy_slug IN (:sf_strategies)))   GROUP BY 1,2,3,4,5,6,7,8 ) SELECT q.platform, q.scale, q.warehouse_size, q.warehouse_size_type, q.q_id, q.q_num,   q.strategy_slug, q.combined_label,   COALESCE(p.tier, '(unpriced)') AS tier,   q.avg_duration_ms, q.sum_duration_ms, q.exec_count,   ROUND(q.sum_duration_ms / 3600000.0 * COALESCE(p.units_per_hour, 0) * COALESCE(p.price_per_unit, 0), 4) AS cost_usd FROM q LEFT JOIN tpcds_sf_catalog.tpcds.results_prices p   ON p.platform = q.platform AND p.warehouse_size = q.warehouse_size  AND p.warehouse_size_type = q.warehouse_size_type AND p.region = 'us-east-1'  AND p.tier = (CASE WHEN q.platform = 'databricks' THEN :dbx_tier ELSE :sf_tier END) ORDER BY q.q_num, q.q_id"
+      ],
+      "parameters": [
+        {
+          "displayName": "Databricks tier",
+          "keyword": "dbx_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Enterprise"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake tier",
+          "keyword": "sf_tier",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Business Critical"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Databricks strategies",
+          "keyword": "dbx_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "ZORDER"
+                },
+                {
+                  "value": "LIQUID_CLUSTERING"
+                },
+                {
+                  "value": "ICEBERG"
+                },
+                {
+                  "value": "ICEBERG_ZORDERED"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "Snowflake strategies",
+          "keyword": "sf_strategies",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "NATIVE_GEN1"
+                },
+                {
+                  "value": "NATIVE_GEN2"
+                },
+                {
+                  "value": "ICEBERG_GEN1"
+                },
+                {
+                  "value": "ICEBERG_GEN2"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page_main",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "## TPC-DS Benchmark — Databricks vs Snowflake"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": [
+                "TCO and performance comparison from JMeter benchmark runs. Filters apply to all charts. Each platform has its own tier and strategy filters; charts color bars by `<platform>/<strategy>` so multiple strategies can be compared on the same platform."
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-scale",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "scale",
+                      "expression": "`scale`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "fields": [
+                    {
+                      "name": "scale",
+                      "expression": "`scale`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "fields": [
+                    {
+                      "name": "scale",
+                      "expression": "`scale`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "fields": [
+                    {
+                      "name": "scale",
+                      "expression": "`scale`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "scale",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "fieldName": "scale",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "fieldName": "scale",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "fieldName": "scale",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Scale (GB)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-warehouse",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "warehouse_size",
+                      "expression": "`warehouse_size`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "fields": [
+                    {
+                      "name": "warehouse_size",
+                      "expression": "`warehouse_size`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "fields": [
+                    {
+                      "name": "warehouse_size",
+                      "expression": "`warehouse_size`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "fields": [
+                    {
+                      "name": "warehouse_size",
+                      "expression": "`warehouse_size`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "warehouse_size",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "fieldName": "warehouse_size",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "fieldName": "warehouse_size",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "fieldName": "warehouse_size",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Warehouse size"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-dbx-tier",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "parameters": [
+                    {
+                      "name": "dbx_tier",
+                      "keyword": "dbx_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "parameters": [
+                    {
+                      "name": "dbx_tier",
+                      "keyword": "dbx_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "parameters": [
+                    {
+                      "name": "dbx_tier",
+                      "keyword": "dbx_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "parameters": [
+                    {
+                      "name": "dbx_tier",
+                      "keyword": "dbx_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "dbx_tier",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "parameterName": "dbx_tier",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "parameterName": "dbx_tier",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "parameterName": "dbx_tier",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Enterprise"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "DBX tier"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-sf-tier",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "parameters": [
+                    {
+                      "name": "sf_tier",
+                      "keyword": "sf_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "parameters": [
+                    {
+                      "name": "sf_tier",
+                      "keyword": "sf_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "parameters": [
+                    {
+                      "name": "sf_tier",
+                      "keyword": "sf_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "parameters": [
+                    {
+                      "name": "sf_tier",
+                      "keyword": "sf_tier"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "sf_tier",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "parameterName": "sf_tier",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "parameterName": "sf_tier",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "parameterName": "sf_tier",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Business Critical"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "SF tier"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-dbx-strategies",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "parameters": [
+                    {
+                      "name": "dbx_strategies",
+                      "keyword": "dbx_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "parameters": [
+                    {
+                      "name": "dbx_strategies",
+                      "keyword": "dbx_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "parameters": [
+                    {
+                      "name": "dbx_strategies",
+                      "keyword": "dbx_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "parameters": [
+                    {
+                      "name": "dbx_strategies",
+                      "keyword": "dbx_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "dbx_strategies",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "parameterName": "dbx_strategies",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "parameterName": "dbx_strategies",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "parameterName": "dbx_strategies",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Databricks strategies (zorder, liquid_clustering, iceberg, iceberg_zordered)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-sf-strategies",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "parameters": [
+                    {
+                      "name": "sf_strategies",
+                      "keyword": "sf_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_ing",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "parameters": [
+                    {
+                      "name": "sf_strategies",
+                      "keyword": "sf_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_pow",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "parameters": [
+                    {
+                      "name": "sf_strategies",
+                      "keyword": "sf_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "fq_con",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "parameters": [
+                    {
+                      "name": "sf_strategies",
+                      "keyword": "sf_strategies"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "sf_strategies",
+                    "queryName": "main_query"
+                  },
+                  {
+                    "parameterName": "sf_strategies",
+                    "queryName": "fq_ing"
+                  },
+                  {
+                    "parameterName": "sf_strategies",
+                    "queryName": "fq_pow"
+                  },
+                  {
+                    "parameterName": "sf_strategies",
+                    "queryName": "fq_con"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Snowflake strategies (native_gen1, native_gen2, iceberg_gen1, iceberg_gen2)"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 3,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "phase-section-header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Phase summary (all phases side-by-side)"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "wallclock-cost-by-phase",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "phase_strategy",
+                      "expression": "`phase_strategy`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "sum(cost_usd_wallclock)",
+                      "expression": "SUM(`cost_usd_wallclock`)"
+                    },
+                    {
+                      "name": "min(phase_order)",
+                      "expression": "MIN(`phase_order`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "phase_strategy",
+                  "displayName": "Phase / strategy",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(phase_order)",
+                          "expression": "MIN(`phase_order`)"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(cost_usd_wallclock)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Wall-clock cost (USD)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Wall-clock TCO per phase (USD)"
+              },
+              "mark": {
+                "layout": "group",
+                "colors": [
+                  "#FF8C00",
+                  "#C42B1C",
+                  "#FFAB00",
+                  "#FF3621",
+                  "#0073B7",
+                  "#29ABE2",
+                  "#00A972",
+                  "#1E8449"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "wallclock-duration-by-phase",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "phase_strategy",
+                      "expression": "`phase_strategy`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "sum(wall_clock_seconds)",
+                      "expression": "SUM(`wall_clock_seconds`)"
+                    },
+                    {
+                      "name": "min(phase_order)",
+                      "expression": "MIN(`phase_order`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "phase_strategy",
+                  "displayName": "Phase / strategy",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(phase_order)",
+                          "expression": "MIN(`phase_order`)"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(wall_clock_seconds)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Wall-clock seconds"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Wall-clock duration per phase (s)"
+              },
+              "mark": {
+                "layout": "group",
+                "colors": [
+                  "#FF8C00",
+                  "#C42B1C",
+                  "#FFAB00",
+                  "#FF3621",
+                  "#0073B7",
+                  "#29ABE2",
+                  "#00A972",
+                  "#1E8449"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "summed-duration-by-phase",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "phase_strategy",
+                      "expression": "`phase_strategy`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "sum(sum_duration_ms)",
+                      "expression": "SUM(`sum_duration_ms`)"
+                    },
+                    {
+                      "name": "min(phase_order)",
+                      "expression": "MIN(`phase_order`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "phase_strategy",
+                  "displayName": "Phase / strategy",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(phase_order)",
+                          "expression": "MIN(`phase_order`)"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(sum_duration_ms)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Total compute time (ms)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total compute time per phase (ms, parallel-streams summed)"
+              },
+              "mark": {
+                "layout": "group",
+                "colors": [
+                  "#FF8C00",
+                  "#C42B1C",
+                  "#FFAB00",
+                  "#FF3621",
+                  "#0073B7",
+                  "#29ABE2",
+                  "#00A972",
+                  "#1E8449"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "query-count-by-phase",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_phase_summary",
+                  "fields": [
+                    {
+                      "name": "phase_strategy",
+                      "expression": "`phase_strategy`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "sum(query_count)",
+                      "expression": "SUM(`query_count`)"
+                    },
+                    {
+                      "name": "min(phase_order)",
+                      "expression": "MIN(`phase_order`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "phase_strategy",
+                  "displayName": "Phase / strategy",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(phase_order)",
+                          "expression": "MIN(`phase_order`)"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(query_count)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Query executions"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Query executions per phase"
+              },
+              "mark": {
+                "layout": "group",
+                "colors": [
+                  "#FF8C00",
+                  "#C42B1C",
+                  "#FFAB00",
+                  "#FF3621",
+                  "#0073B7",
+                  "#29ABE2",
+                  "#00A972",
+                  "#1E8449"
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 11,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "ingestion-section-header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Ingestion — per-query detail"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "ingestion-avg-duration",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "avg(avg_duration_ms)",
+                      "expression": "AVG(`avg_duration_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Table"
+                },
+                "y": {
+                  "fieldName": "avg(avg_duration_ms)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg duration (ms)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ingestion: average CTAS duration per table"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "ingestion-cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_ingestion",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "sum(cost_usd)",
+                      "expression": "SUM(`cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Table"
+                },
+                "y": {
+                  "fieldName": "sum(cost_usd)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Cost (USD)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Ingestion: per-table cost (USD)"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "power-section-header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Power test — per-query detail"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 32,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "power-avg-duration",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "min(q_num)",
+                      "expression": "MIN(`q_num`)"
+                    },
+                    {
+                      "name": "avg(avg_duration_ms)",
+                      "expression": "AVG(`avg_duration_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(q_num)",
+                          "expression": "MIN(`q_num`)"
+                        }
+                      }
+                    ]
+                  },
+                  "displayName": "Query"
+                },
+                "y": {
+                  "fieldName": "avg(avg_duration_ms)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg duration (ms)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Power test: average duration per query"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 33,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "power-cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_power",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "min(q_num)",
+                      "expression": "MIN(`q_num`)"
+                    },
+                    {
+                      "name": "sum(cost_usd)",
+                      "expression": "SUM(`cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(q_num)",
+                          "expression": "MIN(`q_num`)"
+                        }
+                      }
+                    ]
+                  },
+                  "displayName": "Query"
+                },
+                "y": {
+                  "fieldName": "sum(cost_usd)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Cost (USD)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Power test: per-query cost (USD)"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 40,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "concurrency-section-header",
+            "multilineTextboxSpec": {
+              "lines": [
+                "### Concurrency — per-query detail"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 47,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "concurrency-avg-duration",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "min(q_num)",
+                      "expression": "MIN(`q_num`)"
+                    },
+                    {
+                      "name": "avg(avg_duration_ms)",
+                      "expression": "AVG(`avg_duration_ms`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(q_num)",
+                          "expression": "MIN(`q_num`)"
+                        }
+                      }
+                    ]
+                  },
+                  "displayName": "Query"
+                },
+                "y": {
+                  "fieldName": "avg(avg_duration_ms)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Avg duration (ms)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Concurrency: average duration per query"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 48,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "concurrency-cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_query_concurrency",
+                  "fields": [
+                    {
+                      "name": "q_id",
+                      "expression": "`q_id`"
+                    },
+                    {
+                      "name": "combined_label",
+                      "expression": "`combined_label`"
+                    },
+                    {
+                      "name": "min(q_num)",
+                      "expression": "MIN(`q_num`)"
+                    },
+                    {
+                      "name": "sum(cost_usd)",
+                      "expression": "SUM(`cost_usd`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "q_id",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": [
+                      {
+                        "field": {
+                          "name": "min(q_num)",
+                          "expression": "MIN(`q_num`)"
+                        }
+                      }
+                    ]
+                  },
+                  "displayName": "Query"
+                },
+                "y": {
+                  "fieldName": "sum(cost_usd)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Cost (USD, summed)"
+                },
+                "color": {
+                  "fieldName": "combined_label",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Platform / strategy"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Concurrency: per-query cost (USD)"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 55,
+            "width": 6,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}

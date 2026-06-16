@@ -1,0 +1,25 @@
+{
+  "databricks": {
+    "catalog": "tpcds_sf_catalog",
+    "schema": "tpcds",
+    "volume": "tpcds_raw_data",
+    "pat_token": "<your-databricks-pat-token>",
+    "hourly_rate": "2.00",
+    "optimize_strategy": "zorder"
+  },
+  "snowflake": {
+    "account_locator": "ORGNAME-ACCTNAME",
+    "region": "us-east-1",
+    "database": "TPCDS",
+    "schema": "BENCHMARK",
+    "staging": "TPCDS_EXTERNAL_STAGE",
+    "external_volume": "TPCDS_ICEBERG_VOLUME",
+    "role": "SYSADMIN",
+    "user": "SVC_JMETER",
+    "auth_key_path": "/path/to/rsa_key.p8",
+    "hourly_rate": "4.00"
+  },
+  "mlflow": {
+    "experiment_name": "/TPC-DS Benchmark"
+  }
+}
