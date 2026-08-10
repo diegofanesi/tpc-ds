@@ -4,6 +4,7 @@ logs/**
 tpcds_databricks_concurrency_streams/**
 tpcds_snowflake_concurrency_streams/**
 context.md
+CLAUDE.md
 config.json
 config.json.*
 sw_auth
