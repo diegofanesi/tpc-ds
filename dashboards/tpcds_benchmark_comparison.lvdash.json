@@ -46,16 +46,13 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "ZORDER"
-                },
-                {
                   "value": "LIQUID_CLUSTERING"
                 },
                 {
                   "value": "ICEBERG"
                 },
                 {
-                  "value": "ICEBERG_ZORDERED"
+                  "value": "ICEBERG_LIQUID_CLUSTERING"
                 }
               ]
             }
@@ -133,16 +130,13 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "ZORDER"
-                },
-                {
                   "value": "LIQUID_CLUSTERING"
                 },
                 {
                   "value": "ICEBERG"
                 },
                 {
-                  "value": "ICEBERG_ZORDERED"
+                  "value": "ICEBERG_LIQUID_CLUSTERING"
                 }
               ]
             }
@@ -220,16 +214,13 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "ZORDER"
-                },
-                {
                   "value": "LIQUID_CLUSTERING"
                 },
                 {
                   "value": "ICEBERG"
                 },
                 {
-                  "value": "ICEBERG_ZORDERED"
+                  "value": "ICEBERG_LIQUID_CLUSTERING"
                 }
               ]
             }
@@ -307,16 +298,13 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "ZORDER"
-                },
-                {
                   "value": "LIQUID_CLUSTERING"
                 },
                 {
                   "value": "ICEBERG"
                 },
                 {
-                  "value": "ICEBERG_ZORDERED"
+                  "value": "ICEBERG_LIQUID_CLUSTERING"
                 }
               ]
             }
@@ -864,7 +852,7 @@
               },
               "frame": {
                 "showTitle": true,
-                "title": "Databricks strategies (zorder, liquid_clustering, iceberg, iceberg_zordered)"
+                "title": "Databricks strategies (liquid_clustering, iceberg, iceberg_liquid_clustering)"
               }
             }
           },

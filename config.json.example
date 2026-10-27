@@ -5,7 +5,7 @@
     "volume": "tpcds_raw_data",
     "pat_token": "<your-databricks-pat-token>",
     "hourly_rate": "2.00",
-    "optimize_strategy": "zorder"
+    "optimize_strategy": "liquid_clustering"
   },
   "snowflake": {
     "account_locator": "ORGNAME-ACCTNAME",

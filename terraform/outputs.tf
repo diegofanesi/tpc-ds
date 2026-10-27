@@ -124,7 +124,7 @@ locals {
       volume            = databricks_volume.tpcds_raw_data.name
       pat_token         = "<PASTE_YOUR_DATABRICKS_PAT_HERE>"
       hourly_rate       = "2.00"
-      optimize_strategy = "zorder"
+      optimize_strategy = "liquid_clustering"
     }
     snowflake = {
       account_locator = local.account_locator

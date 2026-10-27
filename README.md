@@ -113,7 +113,7 @@ See [Running JMeter from your laptop](#running-jmeter-from-your-laptop).
 
 | Phase | What it does |
 |---|---|
-| **Ingestion** | Creates and loads the TPC-DS tables (`CREATE TABLE AS SELECT` on Databricks; `COPY INTO` on Snowflake). On Databricks, `OPTIMIZE`/`ANALYZE` run out-of-band via the Statement Execution API; Snowflake collects statistics automatically. |
+| **Ingestion** | Creates and loads the TPC-DS tables (`CREATE TABLE AS SELECT` on Databricks; `COPY INTO` on Snowflake). Both platforms maintain table statistics and data layout automatically — Databricks through Predictive Optimization (which must be enabled; the Databricks pipeline fails otherwise), Snowflake natively — so no manual `OPTIMIZE`/`ANALYZE` is run. |
 | **Power test** | Runs the 99 TPC-DS queries (`q1`…`q99`, plus `a`/`b` variants) single-threaded — single-user analytical latency. |
 | **Concurrency** | Replays the queries across multiple parallel streams — multi-user throughput under load. |
 
@@ -459,7 +459,7 @@ Fill in `config.json`:
     "schema":  "tpcds",
     "volume":  "tpcds_raw_data",
     "pat_token": "<your-databricks-pat>",
-    "optimize_strategy": "zorder"
+    "optimize_strategy": "liquid_clustering"
   },
   "snowflake": {
     "account_locator": "<ORG-ACCOUNT>",
@@ -487,7 +487,7 @@ databricks fs cp rsa_key.p8 \
 
 Run **`0 - Job Setup.ipynb`** once to create three Databricks Jobs:
 
-1. **TPC-DS Databricks** — single-combo Databricks pipeline (create + optimize → JMeter ingestion/power/concurrency).
+1. **TPC-DS Databricks** — single-combo Databricks pipeline (query prep → JMeter ingestion/power/concurrency).
 2. **TPC-DS Snowflake** — single-combo Snowflake pipeline (create + `COPY INTO` → JMeter ingestion/power/concurrency).
 3. **TPC-DS Full Benchmark** — the orchestrator that expands the parameter matrix, generates data for any missing scales, and fans out to the two pipelines in parallel before collecting results.
 
@@ -511,7 +511,7 @@ databricks jobs run-now <orchestrator-job-id>
 databricks jobs run-now <orchestrator-job-id> \
   --params 'scales=100,1000' \
   --params 'sizes=S,M,L,XL' \
-  --params 'dbx_strategies=zorder,liquid clustering,iceberg,iceberg_liquid_clustering,iceberg_zordered' \
+  --params 'dbx_strategies=liquid_clustering,iceberg,iceberg_liquid_clustering' \
   --params 'sf_strategies=native_gen1,native_gen2,iceberg_gen1,iceberg_gen2'
 ```
 
@@ -578,13 +578,13 @@ host outside the workspace, or an air-gapped scenario.
 1. **Generate the artifacts** by running the orchestrator once for the combo you want.
    The bundle lands at
    `/Volumes/{catalog}/{schema}/tpcds_raw_data/test_files/{PREFIX}/` where
-   `PREFIX = {SIZE}_{SCALE}_{STRATEGY_SLUG}` (e.g. `M_100_ZORDER`). The cached JMeter
+   `PREFIX = {SIZE}_{SCALE}_{STRATEGY_SLUG}` (e.g. `M_100_LIQUID_CLUSTERING`). The cached JMeter
    binary and JDBC drivers are under `…/tpcds_raw_data/tmp/`.
 2. **Download** the `.jmx` files, the `tpcds-queries-*.tsv` bundles, the drivers
    (`apache-jmeter-5.6.3.tgz`, `DatabricksJDBC-3.3.1.zip`, `snowflake-jdbc-4.1.0.jar`),
    and `rsa_key.p8`:
    ```bash
-   databricks fs cp -r dbfs:/Volumes/tpcds_sf_catalog/tpcds/tpcds_raw_data/test_files/M_100_ZORDER ./test_conf
+   databricks fs cp -r dbfs:/Volumes/tpcds_sf_catalog/tpcds/tpcds_raw_data/test_files/M_100_LIQUID_CLUSTERING ./test_conf
    databricks fs cp -r dbfs:/Volumes/tpcds_sf_catalog/tpcds/tpcds_raw_data/tmp ./drivers
    ```
 3. **Install Java 11** and extract JMeter + the Databricks driver.
@@ -596,12 +596,11 @@ host outside the workspace, or an air-gapped scenario.
    ```bash
    apache-jmeter-5.6.3/bin/jmeter -n \
      -t test_conf/databricks_ingestion.jmx \
-     -l results/M_100_ZORDER-databricks-ingestion-report.csv \
+     -l results/M_100_LIQUID_CLUSTERING-databricks-ingestion-report.csv \
      -j logs/jmeter-dbx-ingestion.log
    ```
-   On Databricks, run `OPTIMIZE`/`ANALYZE` after ingestion (the statements are in the
-   `…-optimization-databricks.tsv` / `…-analyze-databricks.tsv` bundles); warehouses
-   named `TPCDS_{scale}_{size}_{STRATEGY_SLUG}` must already exist.
+   On Databricks, Predictive Optimization must be enabled on the target schema, and
+   warehouses named `TPCDS_{scale}_{size}_{STRATEGY_SLUG}` must already exist.
 6. **Ship results back** — upload the CSVs (named
    `{SIZE}_{SCALE}_{STRATEGY_SLUG}-{platform}-{test_type}-report.csv`) to `results/` and
    run notebooks 6 and 6.1:
@@ -630,7 +629,7 @@ trigger time, not stored in `config.json`.
 |---|---|---|
 | `databricks.catalog` / `schema` / `volume` | Unity Catalog target for data, results, and JMeter assets | `tpcds_sf_catalog` / `tpcds` / `tpcds_raw_data` |
 | `databricks.pat_token` | Workspace PAT used by JMeter's JDBC connection | `dapi…` |
-| `databricks.optimize_strategy` | Default Databricks table strategy | `zorder` |
+| `databricks.optimize_strategy` | Default Databricks table strategy | `liquid_clustering` |
 | `snowflake.account_locator` | `ORG-ACCOUNT` from the account URL | `MYORG-MYACCT` |
 | `snowflake.region` | Snowflake / AWS region (match the bucket) | `us-east-1` |
 | `snowflake.database` / `schema` | Benchmark database / schema | `TPCDS` / `BENCHMARK` |

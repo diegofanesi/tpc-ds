@@ -14,6 +14,10 @@ Warehouse and compute sizes should represent equivalent resource allocation. Com
 
 Queries execute without benefiting from cached results. Cached queries return near-instantly, hiding true query processing performance. The JMeter test plans include cache-disabling parameters: Snowflake queries set `USE_CACHED_RESULT=FALSE`, and Databricks tests use fresh execution contexts. This ensures each query measurement reflects actual computation time.
 
+## Automatic Table Maintenance
+
+Both platforms maintain table statistics and data layout automatically: Snowflake natively, and Databricks through Predictive Optimization. Predictive Optimization must be enabled on the Databricks catalog/schema used for the benchmark — the Databricks pipeline checks it before creating tables and again on every benchmark table, and fails if it is not enabled. No manual `OPTIMIZE` or `ANALYZE` is run on either platform, so neither side gets an un-metered setup step.
+
 ## Standard Benchmark Workload
 
 TPC-DS provides an industry-standard reference point for decision support workloads. The benchmark is widely recognized for evaluating analytical query performance across database platforms. This implementation executes 99 TPC-DS queries at a configurable scale factor (default 100GB), covering a representative range of query patterns including joins, aggregations, and subqueries.
